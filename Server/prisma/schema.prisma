@@ -1,0 +1,172 @@
+// This isyourPrismaschemafile,
+//learnmoreaboutitinthedocs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  STAFF
+  STUDENT
+  COMPANY
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum ApplicationStatus {
+  APPLIED
+  SHORTLISTED
+  REJECTED
+  HIRED
+}
+
+model User {
+  id        Int     @id @default(autoincrement())
+  name      String
+  email     String  @unique
+  phoneno   String
+  password  String
+  avatarUrl String?
+  role      Role    @default(STUDENT)
+
+  student Student?
+  staff   Staff?
+  company Company?
+}
+
+model Company {
+  id     Int  @id @default(autoincrement())
+  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id])
+
+  name        String
+  email       String   @unique
+  phone       String
+  website     String?
+  address     String?
+  industry    String?
+  description String?
+  verificationStatus VerificationStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  jobs        Job[]
+}
+
+model Staff {
+  id     Int  @id @default(autoincrement())
+  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id])
+
+  staffId     String?  @unique
+  name        String
+  email       String   @unique
+  phone       String
+  department  String?
+  designation String?
+  verificationStatus VerificationStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum PlacementStatus {
+  PLACED
+  UNPLACED
+}
+
+model Student {
+  id     Int  @id @default(autoincrement())
+  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id])
+
+  name           String
+  email          String   @unique
+  phone          String
+  registerNumber String   @unique
+  department     String
+  batch          String
+  year           Int
+  resumeUrl      String?
+  cgpa           Float?
+  skills         String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  status PlacementStatus @default(UNPLACED)
+  verificationStatus VerificationStatus @default(PENDING)
+  certifications Certification[]
+  projects       Project[]
+  applications   Application[]
+}
+
+model Job {
+  id                  Int      @id @default(autoincrement())
+  title               String
+  company             String
+  companyId           Int?
+  postedBy            Company? @relation(fields: [companyId], references: [id])
+  location            String
+  description         String
+  requirements        Json // Use Json for string arrays
+  responsibilities    Json
+  postedDate          DateTime
+  salaryMin           Int?
+  salaryMax           Int?
+  employmentType      String
+  benefits            Json?
+  applicationDeadline DateTime
+  contactEmail        String?
+  applications        Application[]
+}
+
+model Certification {
+  id            Int      @id @default(autoincrement())
+  studentId     Int
+  student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  name          String
+  authority     String
+  issueDate     DateTime
+  credentialUrl String?
+  createdAt     DateTime @default(now())
+}
+
+model Project {
+  id           Int      @id @default(autoincrement())
+  studentId    Int
+  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  title        String
+  description  String
+  technologies Json // array of strings
+  duration     String?
+  link         String?
+  createdAt    DateTime @default(now())
+}
+
+model Application {
+  id        Int               @id @default(autoincrement())
+  studentId Int
+  student   Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  jobId     Int
+  job       Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  status    ApplicationStatus @default(APPLIED)
+  // Snapshot of the resume the student had when they applied, so a later
+  // replace/delete of their current resume doesn't change what the
+  // company actually received.
+  resumeUrl String?
+  appliedAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@unique([studentId, jobId])
+}
